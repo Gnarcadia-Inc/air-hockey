@@ -132,7 +132,7 @@ public class PuckStopperDrag : MonoBehaviour
         Vector3 vS = rb.velocity; vS.y = 0f;
 
         // If stopper barely moving, ignore
-        if (vS.magnitude < minHitSpeed) return;
+        //if (vS.magnitude < minHitSpeed) return;
 
         nextAllowedHitTime = Time.time + hitCooldown;
 
