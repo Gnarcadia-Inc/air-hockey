@@ -1,0 +1,70 @@
+
+# =============== #
+# Unity generated #
+# =============== #
+Temp/
+Library/
+UserSettings/
+*.cache
+/obj/
+[Bb]uild/
+Logs/
+Builds/
+
+# ===================================== #
+# Visual Studio / MonoDevelop / Rider   #
+# ===================================== #
+ExportedObj/
+.vs/
+.vscode/
+.idea/
+Assets/Plugins/Editor/JetBrains.meta
+Assets/Plugins/Editor/JetBrains/
+*.svd
+*.userprefs
+*.csproj
+*.pidb
+*.suo
+*.sln
+*.user
+*.unityproj
+*.booproj
+*.tmproj
+*.dwlt./Library/SourceAssetDB
+./Library/ArtifactDB
+./Library/Artifacts/32/321ff1a1b7371b9b010f9139eb435df3
+./Library/Artifacts/4b/4b9a959f9d31041fc70408b1893ec79d
+./Library/Artifacts/30/304c8dd1591f0cd84eec7559bfc9babe
+./Library/Artifacts/d2/d2e8348b7f261c80ed92c3315a26bc90
+./Library/Artifacts/b0/b014e826a08e0edb4572098f290991bd
+./Library/Artifacts/15/15255796eeb03b3de2dee63e224cdf6b
+./Library/Bee/artifacts/WebGL/webgl.data
+./Library/Bee/artifacts/WebGL/GameAssembly/release_WebGL_wasm/GameAssembly.a
+./Library/Bee/artifacts/WebGL/il2cppOutput/build/GameAssembly.a
+./Library/PackageCache/com.unity.burst@1.8.12/.Runtime/libburst-llvm-10.dylib
+./Library/PackageCache/com.unity.burst@1.8.12/.Runtime/libburst-llvm-16.so
+./Library/PackageCache/com.unity.burst@1.8.12/.Runtime/libburst-llvm-16.dylib
+./Library/PackageCache/com.unity.burst@1.8.12/.Runtime/burst-llvm-16.dll
+./Library/PackageCache/com.unity.burst@1.8.12/.Runtime/hostmac/dsymutil
+./Library/PackageCache/com.unity.sysroot.linux-x86_64@2.0.6/data~/payload.tar.7z
+./Library/PackageCache/com.unity.toolchain.macos-arm64-linux-x86_64@2.0.0/data~/payload.tar.7z
+./Library/PlayerDataCache/Linux641/Data/sharedassets1.assets
+./Library/PlayerDataCache/WebGL/Data/data.unity3d
+./Library/PlayerDataCache/OSXUniversal/Data/sharedassets0.resource
+./Library/PlayerDataCache/OSXUniversal/Data/sharedassets2.assets.resS
+./Library/PlayerDataCache/OSXUniversal/Data/sharedassets0.assets.resS
+./Library/PlayerDataCache/OSXUniversal/Data/sharedassets2.assets
+./.git/objects/5d/0cde1a30ec871cde9c9098e4854043d4b93aff
+./.git/objects/aa/89ad8528f575d407ee10f2b08f327dd3b73288
+./.git/objects/76/de5057fea85060ab5e28920839fd019c8e4c9c
+./Assets/Models.FBX
+./Assets/Trees.fbx
+./Assets/Videos/Vicus_trailer.mov
+Assets/.DS_Store
+Assets/Models.FBX
+Assets/Models.FBX.meta
+Assets/Trees.fbx
+Assets/Trees.fbx.meta
+.DS_Store
+.codebuddy/summary.md
+.codebuddy
