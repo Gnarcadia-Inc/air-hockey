@@ -62,7 +62,18 @@ public class MenuManager : MonoBehaviour
 
     private List<GameObject> stars = new List<GameObject>();
 
+    private int currentWager = 0;
 
+    public Image topWagerImage;
+    public Image midWagerImage;
+    public Image botWagerImage;
+
+    public Sprite fiveSprite;
+    public Sprite tenSprite;
+    public Sprite twentySprite;
+    public Sprite fiveSelectedSprite;
+    public Sprite tenSelectedSprite;
+    public Sprite twentySelectedSprite;
 
     void Reset()
     {
@@ -85,6 +96,8 @@ public class MenuManager : MonoBehaviour
         userImage.sprite = blackUserSprite;
 
         MatchBackZero();
+
+        WagerButton(5);
 
         versusImage.gameObject.SetActive(false);
     }
@@ -282,6 +295,30 @@ public class MenuManager : MonoBehaviour
         _running = null;
     }
 
+    public void WagerButton(int wager)
+    {
+        currentWager = wager;
+
+        switch (wager)
+        {
+            case 5:
+                topWagerImage.sprite = fiveSelectedSprite;
+                midWagerImage.sprite = tenSprite;
+                botWagerImage.sprite = twentySprite;
+                break;
+            case 10:
+                topWagerImage.sprite = fiveSprite;
+                midWagerImage.sprite = tenSelectedSprite;
+                botWagerImage.sprite = twentySprite;
+                break;
+            case 20:
+                topWagerImage.sprite = fiveSprite;
+                midWagerImage.sprite = tenSprite;
+                botWagerImage.sprite = twentySelectedSprite;
+                break;
+        }
+    }
+
     public void FindMatchButton()
     {
         Debug.LogError("SCUMCRO");
@@ -295,7 +332,7 @@ public class MenuManager : MonoBehaviour
 
                     MatchBackOne();
 
-                    client.StartMatchmaking();
+                    client.StartMatchmaking(currentWager);
 
                     break;
                 case 1: //Cancel

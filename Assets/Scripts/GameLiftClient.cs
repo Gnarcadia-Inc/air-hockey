@@ -31,7 +31,7 @@ public class GameLiftClient : MonoBehaviour
     public float gameDuration = 0f;
     public string gameMap;
     public string gameMode;
-    private int gameWager = 10;
+    private int gameWager;
     public bool gameFakeCoinFlag;
     public int gameOdds;
     private string gameWeather = " ";
@@ -118,15 +118,12 @@ public class GameLiftClient : MonoBehaviour
         }
     }
 
-    public void SetWagerAmount(int wagerAmount)
-    {
-        gameWager = wagerAmount;
-    }
-
-    public void StartMatchmaking()
+    public void StartMatchmaking(int wagerAmount)
     {
         UnityEngine.Debug.LogError("StartMatchmaking()");
 
+        gameWager = wagerAmount;
+        lobbyName = wagerAmount.ToString();
 
         StartCoroutine(StartMatchmakingCoroutine(UserDetails.userName, lobbyName));
     }
