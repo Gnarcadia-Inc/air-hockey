@@ -24,6 +24,7 @@ public class MenuManager : MonoBehaviour
 
     private bool playFlag = false;
     private bool joinFlag = false;
+    private bool userInitFlag = false;
     private Coroutine _running;
     private Vector3 _primaryStartScale = new Vector3(1f, 1f, 1f);
     private Vector3 _primaryEndScale;
@@ -228,6 +229,9 @@ public class MenuManager : MonoBehaviour
 
         //NOW ON TO: SETUP UI ELEMENTS, ROLL FOR FIRST MOVE, MOVE SWITCHING AND CONTROL, PIECE AND DICE STATE TRANSMIT, WINNING
         //THEN GO BACK TO POLISHING UI, FIX VERSUS ANIMATION, FIX CANVAS SCALING
+
+
+        userInitFlag = true;
     }
 
     public void InsufficientFundsIndicator()
@@ -445,7 +449,8 @@ public class MenuManager : MonoBehaviour
 
     public void FindMatchButton()
     {
-        Debug.LogError("SCUMCRO");
+        if (!userInitFlag) return;
+
         if (UserDetails.userProfileId != null)
         {
             GameLiftClient client = FindObjectOfType<GameLiftClient>();
