@@ -248,7 +248,7 @@ public class MenuManager : MonoBehaviour
 
         // Outline red "intensity" starts at 0
         Color outlineColor = balanceOutline.color;
-        outlineColor.r = 0f;
+        outlineColor.r = 1f;
         balanceOutline.color = outlineColor;
 
         // Text alpha starts at 0
@@ -304,14 +304,14 @@ public class MenuManager : MonoBehaviour
             // Deterministic-ish shake using Perlin (smoother than Random.Range each frame)
             float timeScaled = t * frequency;
             float nx = (Mathf.PerlinNoise(seedX, timeScaled) - 0.5f) * 2f; // -1..1
-            float ny = (Mathf.PerlinNoise(seedY, timeScaled) - 0.5f) * 2f; // -1..1
+            //float ny = (Mathf.PerlinNoise(seedY, timeScaled) - 0.5f) * 2f; // -1..1
 
-            Vector2 shakeOffset = new Vector2(nx, ny) * amplitude * damp;
+            Vector2 shakeOffset = new Vector2(nx, 0f) * amplitude * damp;
 
             balanceRect.anchoredPosition = pos + shakeOffset;
 
             // Apply similarity to r and alpha as requested
-            outlineColor.r = similarity;
+            outlineColor.r = 1f - similarity;
             balanceOutline.color = outlineColor;
 
             textColor.a = similarity;
@@ -323,7 +323,7 @@ public class MenuManager : MonoBehaviour
         // End state: reset position, fade everything back out
         balanceRect.anchoredPosition = pos;
 
-        outlineColor.r = 0f;
+        outlineColor.r = 1f;
         balanceOutline.color = outlineColor;
 
         textColor.a = 0f;
@@ -414,6 +414,8 @@ public class MenuManager : MonoBehaviour
 
     public void WagerButton(int wager)
     {
+        if (joinFlag) return;
+
         currentWager = wager;
 
         switch (wager)
@@ -436,7 +438,7 @@ public class MenuManager : MonoBehaviour
         }
     }
 
-    public void WagerRoutineFinished()
+    public void WagerRoutineFinished(int wager)
     {
         playerReadiness = 1;
         joinFlag = false;
@@ -444,7 +446,7 @@ public class MenuManager : MonoBehaviour
         MatchBackOne();
 
         GameLiftClient client = FindObjectOfType<GameLiftClient>();
-        client.StartMatchmaking(currentWager);
+        client.StartMatchmaking(wager);
     }
 
     public void FindMatchButton()
@@ -466,7 +468,7 @@ public class MenuManager : MonoBehaviour
                         {
                             //Switch to check for fake balance when both balances incorporated into arcade
                             existingHandler.ResetSessionID();
-                            StartCoroutine(existingHandler.StartGameSession(UserDetails.userProfileId, client.gameWager));
+                            StartCoroutine(existingHandler.StartGameSession(UserDetails.userProfileId, currentWager));
                         }
                         else
                         {

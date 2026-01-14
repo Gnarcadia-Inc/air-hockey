@@ -167,7 +167,7 @@ public class APIHandler : MonoBehaviour
             sessionId = session.sessionId;
             roundAmount = session.roundAmount;
 
-            StartCoroutine(ReserveWager());
+            StartCoroutine(ReserveWager(roundAmount));
             yield break;
         }
 
@@ -208,7 +208,7 @@ public class APIHandler : MonoBehaviour
     }
 
 
-    public IEnumerator ReserveWager()
+    public IEnumerator ReserveWager(float wager)
     {
         string url = $"{baseUrl}/wager/reserve";
 
@@ -234,7 +234,7 @@ public class APIHandler : MonoBehaviour
             Debug.Log("Wager reserved. SessionID: " + sessionId);
 
             // Proceed to gameplay
-            FindObjectOfType<MenuManager>().WagerRoutineFinished();
+            FindObjectOfType<MenuManager>().WagerRoutineFinished((int)wager);
         }
     }
 

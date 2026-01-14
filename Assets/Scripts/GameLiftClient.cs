@@ -492,18 +492,20 @@ public class GameLiftClient : MonoBehaviour
     public IEnumerator ReloadGameScene()
     {
 
-        APIHandler existingHandler = FindObjectOfType<APIHandler>();
-        if (existingHandler != null)
-        {
-            //Switch to check for fake balance when both balances incorporated into arcade
-            existingHandler.ResetSessionID();
-            StartCoroutine(existingHandler.StartGameSession(UserDetails.userProfileId, gameWager));
-        }
-        else
-        {
-            UnityEngine.Debug.LogError("Wager placement failed: API Handler not found.");
-            yield break;
-        }
+        //APIHandler existingHandler = FindObjectOfType<APIHandler>();
+        //if (existingHandler != null)
+        //{
+        //    //Switch to check for fake balance when both balances incorporated into arcade
+        //    existingHandler.ResetSessionID();
+        //    StartCoroutine(existingHandler.StartGameSession(UserDetails.userProfileId, gameWager));
+        //}
+        //else
+        //{
+        //    UnityEngine.Debug.LogError("Wager placement failed: API Handler not found.");
+        //    yield break;
+        //}
+
+        //PUT THIS WHEREVER THE NORMAL LOADSCENE PUTS THIS NOW
 
 
         StartCoroutine(FindObjectOfType<GameUIManager>().VersusAnimation());
