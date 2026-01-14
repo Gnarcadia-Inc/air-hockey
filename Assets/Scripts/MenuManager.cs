@@ -23,6 +23,7 @@ public class MenuManager : MonoBehaviour
     public AnimationCurve easing = AnimationCurve.EaseInOut(0, 0, 1, 1);
 
     private bool playFlag = false;
+    private bool joinFlag = false;
     private Coroutine _running;
     private Vector3 _primaryStartScale = new Vector3(1f, 1f, 1f);
     private Vector3 _primaryEndScale;
@@ -75,10 +76,18 @@ public class MenuManager : MonoBehaviour
     public Sprite tenSelectedSprite;
     public Sprite twentySelectedSprite;
 
+    public Image balanceImage;
+    public TextMeshProUGUI balanceText;
+    public Image balanceOutline;
+    public TextMeshProUGUI insufficientFundsText;
+    private Vector2 balanceStartPosition = new Vector2(1205f, 350f);
+    private Vector2 balanceEndPosition = new Vector2(985f, 350f);
+
     void Reset()
     {
         titleImage = GetComponent<RectTransform>();
         overlayObject.SetActive(false);
+        balanceImage.gameObject.SetActive(false);
         subtextObject.SetActive(true);
         duration = 0.5f;
         easing = AnimationCurve.EaseInOut(0, 0, 1, 1);
@@ -104,6 +113,8 @@ public class MenuManager : MonoBehaviour
 
     public void InitUserDetails()
     {
+        balanceText.text = UserDetails.balance.ToString();
+
         usernameTextLeft.text = UserDetails.userName;
 
         //Ranking Divisions
@@ -219,6 +230,105 @@ public class MenuManager : MonoBehaviour
         //THEN GO BACK TO POLISHING UI, FIX VERSUS ANIMATION, FIX CANVAS SCALING
     }
 
+    public void InsufficientFundsIndicator()
+    {
+        joinFlag = false;
+
+        StartCoroutine(InsufficientFundsAnimation());
+    }
+
+    private IEnumerator InsufficientFundsAnimation()
+    {
+        var balanceRect = balanceImage.gameObject.GetComponent<RectTransform>();
+        var pos = balanceRect.anchoredPosition;
+
+        // Outline red "intensity" starts at 0
+        Color outlineColor = balanceOutline.color;
+        outlineColor.r = 0f;
+        balanceOutline.color = outlineColor;
+
+        // Text alpha starts at 0
+        Color textColor = insufficientFundsText.color;
+        textColor.a = 0f;
+        insufficientFundsText.color = textColor;
+
+        insufficientFundsText.gameObject.SetActive(true);
+
+        float d = Mathf.Max(0.0001f, duration);
+        float t = 0f;
+
+        // Shake tuning (adjust as desired)
+        float startFrequency = 35f;     // fast early
+        float endFrequency = 12f;     // slower later
+        float startAmplitude = 18f;     // pixels
+        float endAmplitude = 0f;      // damp to zero
+
+        // Randomized direction per axis for a more "rejection" feel
+        float seedX = Random.Range(0f, 1000f);
+        float seedY = Random.Range(0f, 1000f);
+
+        while (t < d)
+        {
+            t += Time.deltaTime;
+            float u = Mathf.Clamp01(t / d); // 0..1
+
+            // --- Similarity envelope: 0..1 in first 25%, hold, then 1..0 in last 25% ---
+            float similarity;
+            if (u < 0.25f)
+            {
+                // 0 -> 1 over [0, 0.25] (quarter of the time)
+                float p = u / 0.25f;                 // 0..1
+                similarity = easing.Evaluate(p);     // eased up
+            }
+            else if (u < 0.75f)
+            {
+                similarity = 1f; // hold
+            }
+            else
+            {
+                // 1 -> 0 over [0.75, 1]
+                float p = (u - 0.75f) / 0.25f;       // 0..1
+                similarity = 1f - easing.Evaluate(p);// eased down
+            }
+
+            // --- Shake: fast + strong early, then damp and slow down ---
+            // Use an eased damping so it falls off quickly (button rejection vibe)
+            float damp = 1f - easing.Evaluate(u); // starts ~1, ends 0
+            float amplitude = Mathf.Lerp(startAmplitude, endAmplitude, 1f - damp); // goes down
+            float frequency = Mathf.Lerp(startFrequency, endFrequency, easing.Evaluate(u)); // slows over time
+
+            // Deterministic-ish shake using Perlin (smoother than Random.Range each frame)
+            float timeScaled = t * frequency;
+            float nx = (Mathf.PerlinNoise(seedX, timeScaled) - 0.5f) * 2f; // -1..1
+            float ny = (Mathf.PerlinNoise(seedY, timeScaled) - 0.5f) * 2f; // -1..1
+
+            Vector2 shakeOffset = new Vector2(nx, ny) * amplitude * damp;
+
+            balanceRect.anchoredPosition = pos + shakeOffset;
+
+            // Apply similarity to r and alpha as requested
+            outlineColor.r = similarity;
+            balanceOutline.color = outlineColor;
+
+            textColor.a = similarity;
+            insufficientFundsText.color = textColor;
+
+            yield return null;
+        }
+
+        // End state: reset position, fade everything back out
+        balanceRect.anchoredPosition = pos;
+
+        outlineColor.r = 0f;
+        balanceOutline.color = outlineColor;
+
+        textColor.a = 0f;
+        insufficientFundsText.color = textColor;
+
+        insufficientFundsText.gameObject.SetActive(false);
+    }
+
+
     public void Play()
     {
         if (!playFlag)
@@ -266,8 +376,10 @@ public class MenuManager : MonoBehaviour
         color.a = 0f;
         userImage.color = color;
         matchImage.color = color;
+        balanceImage.color = color;
 
         overlayObject.SetActive(true);
+        balanceImage.gameObject.SetActive(true);
         subtextObject.SetActive(false);
 
         float t = 0f;
@@ -281,11 +393,12 @@ public class MenuManager : MonoBehaviour
 
             titleImage.anchoredPosition = Vector2.LerpUnclamped(startAnchoredPosition, endAnchoredPosition, w);
             titleImage.localScale = Vector3.LerpUnclamped(_primaryStartScale, _primaryEndScale, w);
-
+            balanceImage.gameObject.GetComponent<RectTransform>().anchoredPosition = Vector2.LerpUnclamped(balanceStartPosition, balanceEndPosition, w);
             overlayObject.GetComponent<RectTransform>().anchoredPosition = Vector2.LerpUnclamped(overlayStartAnchoredPosition, overlayEndAnchoredPosition, w);
             color.a = w;
             userImage.color = color;
             matchImage.color = color;
+            balanceImage.color = color;
 
             yield return null;
         }
@@ -319,6 +432,17 @@ public class MenuManager : MonoBehaviour
         }
     }
 
+    public void WagerRoutineFinished()
+    {
+        playerReadiness = 1;
+        joinFlag = false;
+
+        MatchBackOne();
+
+        GameLiftClient client = FindObjectOfType<GameLiftClient>();
+        client.StartMatchmaking(currentWager);
+    }
+
     public void FindMatchButton()
     {
         Debug.LogError("SCUMCRO");
@@ -328,11 +452,22 @@ public class MenuManager : MonoBehaviour
             switch (playerReadiness)
             {
                 case 0: //Join
-                    playerReadiness = 1;
+                    if (!joinFlag)
+                    {
+                        joinFlag = true;
 
-                    MatchBackOne();
-
-                    client.StartMatchmaking(currentWager);
+                        APIHandler existingHandler = FindObjectOfType<APIHandler>();
+                        if (existingHandler != null)
+                        {
+                            //Switch to check for fake balance when both balances incorporated into arcade
+                            existingHandler.ResetSessionID();
+                            StartCoroutine(existingHandler.StartGameSession(UserDetails.userProfileId, client.gameWager));
+                        }
+                        else
+                        {
+                            UnityEngine.Debug.LogError("Wager placement failed: API Handler not found.");
+                        }
+                    }
 
                     break;
                 case 1: //Cancel

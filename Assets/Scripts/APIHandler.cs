@@ -1,7 +1,9 @@
+using System;
 using System.Collections;
 using UnityEngine;
 using UnityEngine.Networking;
 using UnityEngine.SceneManagement;
+using Newtonsoft.Json;
 
 public class APIHandler : MonoBehaviour
 {
@@ -148,23 +150,61 @@ public class APIHandler : MonoBehaviour
 
         string jsonPayload = JsonUtility.ToJson(payload);
         UnityWebRequest request = new UnityWebRequest(url, "POST");
+
         request.uploadHandler = new UploadHandlerRaw(System.Text.Encoding.UTF8.GetBytes(jsonPayload));
         request.downloadHandler = new DownloadHandlerBuffer();
         request.SetRequestHeader("Content-Type", "application/json");
 
         yield return request.SendWebRequest();
 
-        if (request.result != UnityWebRequest.Result.Success)
+         long httpCode = request.responseCode;
+        string body = request.downloadHandler != null ? request.downloadHandler.text : null;
+
+        // Success path
+        if (request.result == UnityWebRequest.Result.Success && httpCode >= 200 && httpCode < 300)
         {
-            Debug.LogError("Failed to start session: " + request.error);
+            var session = JsonUtility.FromJson<SessionStartResponse>(body);
+            sessionId = session.sessionId;
+            roundAmount = session.roundAmount;
+
+            StartCoroutine(ReserveWager());
             yield break;
         }
 
-        var session = JsonUtility.FromJson<SessionStartResponse>(request.downloadHandler.text);
-        sessionId = session.sessionId;
-        roundAmount = session.roundAmount;
+        // Error path (400 etc): your server sends a JSON body — parse it
+        if (httpCode == 400 && !string.IsNullOrEmpty(body))
+        {
+            ApiErrorResponse err = null;
 
-        StartCoroutine(ReserveWager());
+            try
+            {
+                err = JsonUtility.FromJson<ApiErrorResponse>(body);
+            }
+            catch
+            {
+                // JsonUtility is picky; if parsing fails, fall back to generic handling
+            }
+
+            if (err != null)
+            {
+                switch (err.errorCode)
+                {
+                    case 405:
+                        OnSessionLimitExceedsBalance(err);
+                        yield break;
+
+                    case 406:
+                        OnRoundAmountExceedsBalance(err);
+                        yield break;
+
+                    default:
+                        OnStartSessionGenericError(httpCode, body);
+                        yield break;
+                }
+            }
+        }
+
+        OnStartSessionGenericError(httpCode, body);
     }
 
 
@@ -186,13 +226,113 @@ public class APIHandler : MonoBehaviour
         {
             Debug.LogError("Failed to reserve wager: " + request.error);
             // Handle retry or show error to user
+
+            StartCoroutine(ResolveCurrentGameSession());
         }
         else
         {
             Debug.Log("Wager reserved. SessionID: " + sessionId);
+
             // Proceed to gameplay
+            FindObjectOfType<MenuManager>().WagerRoutineFinished();
         }
     }
+
+    private IEnumerator ResolveCurrentGameSession()
+    {
+        string url = $"{baseUrl}/session/end";
+
+        string jsonPayload = $"{{\"sessionId\": {sessionId}}}";
+
+        UnityWebRequest request = new UnityWebRequest(url, "POST");
+        byte[] bodyRaw = System.Text.Encoding.UTF8.GetBytes(jsonPayload);
+        request.uploadHandler = new UploadHandlerRaw(bodyRaw);
+        request.downloadHandler = new DownloadHandlerBuffer();
+        request.SetRequestHeader("Content-Type", "application/json");
+
+        yield return request.SendWebRequest();
+
+        if (request.result != UnityWebRequest.Result.Success)
+        {
+            Debug.Log("Failed to end session: " + request.error);
+        }
+        else
+        {
+            Debug.Log("Session ended.");
+        }
+    }
+
+    public IEnumerator ResolveCurrentGameSessionAndWager()
+    {
+        var wager = new WagerResult
+        {
+            sessionId = sessionId,
+            status = 2,
+            winAmount = 0f
+        };
+
+        string url = $"{baseUrl}/wager/resolve";
+        string jsonPayload = JsonConvert.SerializeObject(wager);
+
+        UnityWebRequest request = new UnityWebRequest(url, "POST");
+        byte[] bodyRaw = System.Text.Encoding.UTF8.GetBytes(jsonPayload);
+        request.uploadHandler = new UploadHandlerRaw(bodyRaw);
+        request.downloadHandler = new DownloadHandlerBuffer();
+        request.SetRequestHeader("Content-Type", "application/json");
+
+        yield return request.SendWebRequest();
+
+        if (request.result != UnityWebRequest.Result.Success)
+        {
+            Debug.Log("Failed to cancel wager: " + request.error);
+        }
+        else
+        {
+            Debug.Log("Wager cancelled: " + request.downloadHandler.text);
+        }
+
+
+
+        url = $"{baseUrl}/session/end";
+
+        jsonPayload = $"{{\"sessionId\": {sessionId}}}";
+
+        request = new UnityWebRequest(url, "POST");
+        bodyRaw = System.Text.Encoding.UTF8.GetBytes(jsonPayload);
+        request.uploadHandler = new UploadHandlerRaw(bodyRaw);
+        request.downloadHandler = new DownloadHandlerBuffer();
+        request.SetRequestHeader("Content-Type", "application/json");
+
+        yield return request.SendWebRequest();
+
+        if (request.result != UnityWebRequest.Result.Success)
+        {
+            Debug.Log("Failed to end session: " + request.error);
+        }
+        else
+        {
+            Debug.Log("Session ended.");
+        }
+    }
+
+    private void OnSessionLimitExceedsBalance(ApiErrorResponse err)
+    {
+        Debug.LogWarning($"Session limit too high: {err.detail} (code {err.errorCode})");
+
+        FindObjectOfType<MenuManager>().InsufficientFundsIndicator();
+    }
+
+    private void OnRoundAmountExceedsBalance(ApiErrorResponse err)
+    {
+        Debug.LogWarning($"Round amount too high: {err.detail} (code {err.errorCode})");
+        FindObjectOfType<MenuManager>().InsufficientFundsIndicator();
+    }
+
+    private void OnStartSessionGenericError(long httpCode, string body)
+    {
+        Debug.LogError($"Start session failed. HTTP {httpCode}. Body: {body}");
+    }
+
 }
 
 public class UserJSONDetails
@@ -255,4 +395,23 @@ public class SessionStartResponse
     public float sessionLimit;
     public float roundAmount;
     public bool reservedFundsLostOnSessionEnd;
+}
+
+[System.Serializable]
+public class ApiErrorResponse
+{
+    public string type;
+    public string title;
+    public int status;
+    public string detail;
+    public int errorCode;
+    public string traceId;
+}
+
+[Serializable]
+public class WagerResult
+{
+    public int sessionId;
+    public int status;      // 1 = win, 0 = loss
+    public float winAmount; // always included, 0 for losses
 }

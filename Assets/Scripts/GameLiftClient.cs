@@ -31,7 +31,7 @@ public class GameLiftClient : MonoBehaviour
     public float gameDuration = 0f;
     public string gameMap;
     public string gameMode;
-    private int gameWager;
+    public int gameWager;
     public bool gameFakeCoinFlag;
     public int gameOdds;
     private string gameWeather = " ";
@@ -182,6 +182,16 @@ public class GameLiftClient : MonoBehaviour
         {
             // Log matchmaking failure
             UnityEngine.Debug.LogError($"Matchmaking failed: {request.error}");
+
+            APIHandler existingHandler = FindObjectOfType<APIHandler>();
+            if (existingHandler != null)
+            {
+                StartCoroutine(existingHandler.ResolveCurrentGameSessionAndWager());
+            }
+            else
+            {
+                UnityEngine.Debug.LogError("Resolve wager failed, contact us: API Handler not found.");
+            }
         }
     }
 
@@ -221,25 +231,22 @@ public class GameLiftClient : MonoBehaviour
 
                     getPlayerCountFlag = false;
 
-                    APIHandler existingHandler = FindObjectOfType<APIHandler>();
-                    if (existingHandler != null)
-                    {
-                        //Switch to check for fake balance when both balances incorporated into arcade
-                        existingHandler.ResetSessionID();
-                        StartCoroutine(existingHandler.StartGameSession(UserDetails.userProfileId, gameWager));
-                    }
-                    else
-                    {
-                        UnityEngine.Debug.LogError("Wager placement failed: API Handler not found.");
-                        yield break;
-                    }
-
                     ConnectToGameLiftServer();
                     yield break;
                 }
                 else if (response.status == "FAILED")
                 {
                     UnityEngine.Debug.LogError("Matchmaking failed.");
+
+                    APIHandler existingHandler = FindObjectOfType<APIHandler>();
+                    if (existingHandler != null)
+                    {
+                        StartCoroutine(existingHandler.ResolveCurrentGameSessionAndWager());
+                    }
+                    else
+                    {
+                        UnityEngine.Debug.LogError("Resolve wager failed, contact us: API Handler not found.");
+                    }
 
                     menuManager.ResetPlayerReadiness();
                     menuManager.ResetExitReadyButton();
@@ -252,6 +259,17 @@ public class GameLiftClient : MonoBehaviour
             else
             {
                 UnityEngine.Debug.LogError($"Polling failed: {request.error}");
+
+                APIHandler existingHandler = FindObjectOfType<APIHandler>();
+                if (existingHandler != null)
+                {
+                    StartCoroutine(existingHandler.ResolveCurrentGameSessionAndWager());
+                }
+                else
+                {
+                    UnityEngine.Debug.LogError("Resolve wager failed, contact us: API Handler not found.");
+                }
+
                 yield break;
             }
 
@@ -679,6 +697,17 @@ public class GameLiftClient : MonoBehaviour
                 StartCoroutine(PostPlayerLeave());
 
                 pollMatchmakingFlag = false;
+
+                APIHandler existingHandler = FindObjectOfType<APIHandler>();
+                if (existingHandler != null)
+                {
+                    StartCoroutine(existingHandler.ResolveCurrentGameSessionAndWager());
+                }
+                else
+                {
+                    UnityEngine.Debug.LogError("Resolve wager failed, contact us: API Handler not found.");
+                }
+
                 menuManager.ResetPlayerReadiness();
             }
             else
