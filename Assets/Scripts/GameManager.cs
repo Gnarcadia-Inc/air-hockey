@@ -52,6 +52,9 @@ public class GameManager : MonoBehaviour
     public int scorePositive;               // + team
     public int scoreNegative;               // - team
 
+    private int lastYouScore = 0;
+    private int lastOppScore = 0;
+
     public Rigidbody stopperRb;
     public Rigidbody opponentStopperRb;
     public Collider opponentStopperCollider;
@@ -64,7 +67,7 @@ public class GameManager : MonoBehaviour
     float timeRemaining;
     bool gameEnded;
 
-    private bool gameFlag = true;
+    private bool gameFlag = false;
 
     private bool tieFlag = true;
     private float tieBuffer = 0f;
@@ -117,6 +120,26 @@ public class GameManager : MonoBehaviour
     private bool gotFirstRemoteAfterSwitch = false;
 
     private Coroutine puckHandoffCoroutine;
+
+    [Min(0.0001f)] private float duration = 0.5f;
+    private AnimationCurve easing = AnimationCurve.EaseInOut(0, 0, 1, 1);
+
+    public TextMeshProUGUI awayPlus;
+    public TextMeshProUGUI homePlus;
+
+    private Vector2 awayPlusStartPos = new Vector2(-450f, -100f);
+    private Vector2 awayPlusEndPos = new Vector2(-450f, 25f);
+    private Vector2 homePlusStartPos = new Vector2(450f, -100f);
+    private Vector2 homePlusEndPos = new Vector2(450f, 25f);
+
+    public Transform youGoalLightTransform;
+    public Transform oppGoalLightTransform;
+    private Vector3 youGoalLightStartPos = new Vector3(-2.25f, -0.17f, 0f);
+    private Vector3 youGoalLightEndPos = new Vector3(-2.25f, 0.162f, 0f);
+    private Vector3 oppGoalLightStartPos = new Vector3(2.25f, -0.17f, 0f);
+    private Vector3 oppGoalLightEndPos = new Vector3(2.25f, 0.162f, 0f);
+
+    private bool goalFlag = false;
 
     public void OnRemotePuckState(float x, float z, float vx, float vz)
     {
@@ -239,29 +262,61 @@ public class GameManager : MonoBehaviour
         // B) Goal detect + reset (do this in physics step)
         if (puckRb)
         {
-            float x = puckRb.position.x;
-
-            float vx = puckRb.velocity.x;
-
-            if (isAuthority)
+            if (gameFlag)
             {
-                if (puckRb.isKinematic) puckRb.isKinematic = false;
+                float x = puckRb.position.x;
 
-                puckCollider.enabled = true;
+                float vx = puckRb.velocity.x;
+
+                if (isAuthority)
+                {
+                    if (puckRb.isKinematic) puckRb.isKinematic = false;
+
+                    puckCollider.enabled = true;
+
+                    if (!goalFlag)
+                    {
+                        if (homeFlag)
+                        {
+                            if (puckRb.position.x >= 2.25f)
+                            {
+                                goalFlag = true;
+                                GoalScored(false);
+                            }
+                            else if (puckRb.position.x <= -2.25f)
+                            {
+                                goalFlag = true;
+                                GoalScored(true);
+                            }
+                        }
+                        else
+                        {
+                            if (puckRb.position.x >= 2.25f)
+                            {
+                                goalFlag = true;
+                                GoalScored(true);
+                            }
+                            else if (puckRb.position.x <= -2.25f)
+                            {
+                                goalFlag = true;
+                                GoalScored(false);
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    if (!puckRb.isKinematic) puckRb.isKinematic = true;
+
+                    puckCollider.enabled = true;
+
+                    float dt = Mathf.Clamp(Time.time - remoteLastRecvTime, 0f, 0.2f);
+                    Vector3 predicted = remotePos + remoteVel * dt;
+                    Vector3 current = puckRb.position;
+
+                    puckRb.MovePosition(Vector3.Lerp(current, predicted, 1f - Mathf.Exp(-remotePosLerp * Time.fixedDeltaTime)));
+                }
             }
-            else
-            {
-                if (!puckRb.isKinematic) puckRb.isKinematic = true;
-
-                puckCollider.enabled = true;
-
-                float dt = Mathf.Clamp(Time.time - remoteLastRecvTime, 0f, 0.2f);
-                Vector3 predicted = remotePos + remoteVel * dt;
-                Vector3 current = puckRb.position;
-
-                puckRb.MovePosition(Vector3.Lerp(current, predicted, 1f - Mathf.Exp(-remotePosLerp * Time.fixedDeltaTime)));
-            }
-
         }
 
         if (opponentStopperRb && opponentStopperCollider)
@@ -346,9 +401,9 @@ public class GameManager : MonoBehaviour
         // keep lastRemotePuckSeq as-is; or reset it if you also seq PUCK_SWITCH
     }
 
-    public void GoalScored()
+    public void GoalScored(bool selfFlag)
     {
-        gameLiftClient.SendGoalUpdate();
+        gameLiftClient.SendGoalUpdate(selfFlag);
     }
 
     // --- A) Clamp with sticky edge, using direct position set to avoid double-MovePosition jitter ---
@@ -417,6 +472,8 @@ public class GameManager : MonoBehaviour
         {
             gameLiftClient.puckOnSide = false;
         }
+
+        goalFlag = false;
     }
 
     public void FreezeRemotePuck(float seconds)
@@ -440,23 +497,41 @@ public class GameManager : MonoBehaviour
             //Pregame & Endgame Sequence
             if (elapsedTimeFloat < 12f && elapsedTimeFloat >= 0f)
             {
+                gameFlag = false;
+
+                puckCollider.enabled = false;
+                puckRb.isKinematic = true;
+
                 promptText.gameObject.SetActive(true);
                 promptText.text = "Opening Faceoff\n" + (int)(15f - elapsedTimeFloat);
             }
             else if (elapsedTimeFloat < 15f && elapsedTimeFloat >= 12f)
             {
+                gameFlag = false;
+
+                puckCollider.enabled = false;
+                puckRb.isKinematic = true;
+
                 promptText.gameObject.SetActive(true);
                 promptText.text = "Puck drop in\n" + (int)(15f - elapsedTimeFloat);
             }
             else if (elapsedTimeFloat < 16f && elapsedTimeFloat >= 15f)
             {
+                gameFlag = false;
+
+                puckCollider.enabled = false;
+                puckRb.isKinematic = true;
+
                 promptText.gameObject.SetActive(true);
                 promptText.text = "Puck drop";
             }
             else if (elapsedTimeFloat > (gameLiftClient.gameDuration + tieBuffer) && elapsedTimeFloat < (gameLiftClient.gameDuration + tieBuffer + 2f))
             {
-
                 gameFlag = false;
+                puckRb.isKinematic = true;
+
+                puckCollider.enabled = false;
+
                 promptText.gameObject.SetActive(true);
                 promptText.text = "Game over";
             }
@@ -477,6 +552,8 @@ public class GameManager : MonoBehaviour
             }
             else
             {
+                puckCollider.enabled = true;
+
                 gameFlag = true;
                 promptText.gameObject.SetActive(false);
             }
@@ -520,10 +597,264 @@ public class GameManager : MonoBehaviour
             tieFlag = true;
         }
 
+        if (youScore != lastYouScore)
+        {
+            lastYouScore = youScore;
+
+            StartCoroutine(ScorePlusAnimation(false));
+
+            if (homeFlag)
+            {
+                StartCoroutine(GoalHornAnimation(true));
+            }
+            else
+            {
+                StartCoroutine(GoalHornAnimation(false));
+            }
+        }
+        else
+        {
+            lastOppScore = oppScore;
+
+            StartCoroutine(ScorePlusAnimation(true));
+
+            if (homeFlag)
+            {
+                StartCoroutine(GoalHornAnimation(false));
+            }
+            else
+            {
+                StartCoroutine(GoalHornAnimation(true));
+            }
+        }
+
+
         scoreHomeText.text = youScore.ToString();
         scoreAwayText.text = oppScore.ToString();
 
         if (resetPuckToCenter) ResetPuckXZToCenter();
+    }
+
+    private IEnumerator ScorePlusAnimation(bool plusFlag)
+    {
+        if (plusFlag)
+        {
+            var plusRect = awayPlus.gameObject.GetComponent<RectTransform>();
+
+            plusRect.anchoredPosition = awayPlusStartPos;
+
+            Color color = awayPlus.color;
+            color.a = 0f;
+            awayPlus.color = color;
+
+            awayPlus.gameObject.SetActive(true);
+
+            float t = 0f;
+            float d = Mathf.Max(0.0001f, duration);
+
+            while (t < d)
+            {
+                t += Time.deltaTime;
+                float u = Mathf.Clamp01(t / d);         // 0..1
+                float w = easing.Evaluate(u);           // eased 0..1
+
+                plusRect.anchoredPosition = Vector2.LerpUnclamped(awayPlusStartPos, awayPlusEndPos, w);
+
+
+                float similarity;
+                if (u < 0.25f)
+                {
+                    // 0 -> 1 over [0, 0.25] (quarter of the time)
+                    float p = u / 0.25f;                 // 0..1
+                    similarity = easing.Evaluate(p);     // eased up
+                }
+                else if (u < 0.75f)
+                {
+                    similarity = 1f; // hold
+                }
+                else
+                {
+                    // 1 -> 0 over [0.75, 1]
+                    float p = (u - 0.75f) / 0.25f;       // 0..1
+                    similarity = 1f - easing.Evaluate(p);// eased down
+                }
+
+                color.a = similarity;
+                awayPlus.color = color;
+
+                yield return null;
+            }
+
+            plusRect.anchoredPosition = awayPlusEndPos;
+
+            awayPlus.gameObject.SetActive(false);
+        }
+        else
+        {
+            var plusRect = homePlus.gameObject.GetComponent<RectTransform>();
+
+            plusRect.anchoredPosition = homePlusStartPos;
+
+            Color color = homePlus.color;
+            color.a = 0f;
+            homePlus.color = color;
+
+            homePlus.gameObject.SetActive(true);
+
+            float t = 0f;
+            float d = Mathf.Max(0.0001f, duration);
+
+            while (t < d)
+            {
+                t += Time.deltaTime;
+                float u = Mathf.Clamp01(t / d);         // 0..1
+                float w = easing.Evaluate(u);           // eased 0..1
+
+                plusRect.anchoredPosition = Vector2.LerpUnclamped(homePlusStartPos, homePlusEndPos, w);
+
+
+                float similarity;
+                if (u < 0.25f)
+                {
+                    // 0 -> 1 over [0, 0.25] (quarter of the time)
+                    float p = u / 0.25f;                 // 0..1
+                    similarity = easing.Evaluate(p);     // eased up
+                }
+                else if (u < 0.75f)
+                {
+                    similarity = 1f; // hold
+                }
+                else
+                {
+                    // 1 -> 0 over [0.75, 1]
+                    float p = (u - 0.75f) / 0.25f;       // 0..1
+                    similarity = 1f - easing.Evaluate(p);// eased down
+                }
+
+                color.a = similarity;
+                homePlus.color = color;
+
+                yield return null;
+            }
+
+            plusRect.anchoredPosition = homePlusEndPos;
+
+            homePlus.gameObject.SetActive(false);
+        }
+    }
+
+    private IEnumerator GoalHornAnimation(bool goalHornFlag)
+    {
+        if (goalHornFlag)
+        {
+            youGoalLightTransform.position = youGoalLightStartPos;
+
+            youGoalLightTransform.gameObject.SetActive(true);
+
+            float t = 0f;
+            float d = Mathf.Max(0.0001f, duration);
+
+            while (t < d)
+            {
+                t += Time.deltaTime;
+                float u = Mathf.Clamp01(t / d);         // 0..1
+                float w = easing.Evaluate(u);           // eased 0..1
+
+                youGoalLightTransform.position = Vector3.LerpUnclamped(youGoalLightStartPos, youGoalLightEndPos, w);
+                youGoalLightTransform.rotation *= Quaternion.Euler(0f, 0.1f, 0f);
+
+                yield return null;
+            }
+
+            t = 0f;
+            d = Mathf.Max(0.0001f, duration * 2f);
+
+            while (t < d)
+            {
+                t += Time.deltaTime;
+                float u = Mathf.Clamp01(t / d);         // 0..1
+                float w = easing.Evaluate(u);           // eased 0..1
+
+                youGoalLightTransform.rotation *= Quaternion.Euler(0f, 0.1f, 0f);
+
+                yield return null;
+            }
+
+            t = 0f;
+            d = Mathf.Max(0.0001f, duration);
+
+            while (t < d)
+            {
+                t += Time.deltaTime;
+                float u = Mathf.Clamp01(t / d);         // 0..1
+                float w = easing.Evaluate(u);           // eased 0..1
+
+                youGoalLightTransform.position = Vector3.LerpUnclamped(youGoalLightEndPos, youGoalLightStartPos, w);
+                youGoalLightTransform.rotation *= Quaternion.Euler(0f, 0.1f, 0f);
+
+                yield return null;
+            }
+
+            youGoalLightTransform.position = youGoalLightStartPos;
+
+            youGoalLightTransform.gameObject.SetActive(false);
+        }
+        else
+        {
+            oppGoalLightTransform.position = oppGoalLightStartPos;
+
+            oppGoalLightTransform.gameObject.SetActive(true);
+
+            float t = 0f;
+            float d = Mathf.Max(0.0001f, duration);
+
+            while (t < d)
+            {
+                t += Time.deltaTime;
+                float u = Mathf.Clamp01(t / d);         // 0..1
+                float w = easing.Evaluate(u);           // eased 0..1
+
+                oppGoalLightTransform.position = Vector3.LerpUnclamped(oppGoalLightStartPos, oppGoalLightEndPos, w);
+                oppGoalLightTransform.rotation *= Quaternion.Euler(0f, 0.1f, 0f);
+
+                yield return null;
+            }
+
+            t = 0f;
+            d = Mathf.Max(0.0001f, duration * 2f);
+
+            while (t < d)
+            {
+                t += Time.deltaTime;
+                float u = Mathf.Clamp01(t / d);         // 0..1
+                float w = easing.Evaluate(u);           // eased 0..1
+
+                oppGoalLightTransform.rotation *= Quaternion.Euler(0f, 0.1f, 0f);
+
+                yield return null;
+            }
+
+            t = 0f;
+            d = Mathf.Max(0.0001f, duration);
+
+            while (t < d)
+            {
+                t += Time.deltaTime;
+                float u = Mathf.Clamp01(t / d);         // 0..1
+                float w = easing.Evaluate(u);           // eased 0..1
+
+                oppGoalLightTransform.position = Vector3.LerpUnclamped(oppGoalLightEndPos, oppGoalLightStartPos, w);
+                oppGoalLightTransform.rotation *= Quaternion.Euler(0f, 0.1f, 0f);
+
+                yield return null;
+            }
+
+            oppGoalLightTransform.position = oppGoalLightStartPos;
+
+            oppGoalLightTransform.gameObject.SetActive(false);
+        }
+        
+        
     }
 
     public FullPuckPhysics TurnOffPuckPhysics()

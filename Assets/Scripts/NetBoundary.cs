@@ -4,8 +4,5 @@ using UnityEngine;
 
 public class NetBoundary : MonoBehaviour
 {
-    void OnCollisionEnter()
-    {
-        GameManager.Instance.GoalScored();
-    }
+    
 }

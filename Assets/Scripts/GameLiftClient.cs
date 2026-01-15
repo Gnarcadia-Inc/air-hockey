@@ -618,10 +618,19 @@ public class GameLiftClient : MonoBehaviour
         }
     }
 
-    public void SendGoalUpdate()
+    public void SendGoalUpdate(bool selfFlag)
     {
-        string puckMessage = $"ADD_GOAL {UserDetails.userProfileId}";
-        SendMessageToServer(puckMessage);
+        if (selfFlag)
+        {
+            string puckMessage = $"ADD_GOAL {UserDetails.userProfileId}";
+            SendMessageToServer(puckMessage);
+        }
+        else
+        {
+            string puckMessage = $"ADD_GOAL {UserDetails.oppProfileId}";
+            SendMessageToServer(puckMessage);
+        }
+        
     }
 
     public void SendPuckHit(Vector3 newVelo)

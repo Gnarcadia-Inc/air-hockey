@@ -121,6 +121,8 @@ public class APIHandler : MonoBehaviour
         var json = request.downloadHandler.text;
         var user = JsonUtility.FromJson<AirHockeyJSONDetails>(json);
 
+        UserDetails.oppProfileId = opponentProfileId;
+
         FindObjectOfType<MenuManager>().MatchBackTwo(opponentProfileId, opponentUsername, opponentGnight, color, user.rating, user.ranking, user.lastTenResults,
             user.activeStreak, user.numWins, user.numLosses, user.totalWagered, user.recentNetEarningsEma);
     }
@@ -362,6 +364,7 @@ public static class UserDetails
     public static string userName;
     public static int gnight;
     public static float balance;
+    public static int oppProfileId;
 }
 
 public static class AirHockeyDetails
