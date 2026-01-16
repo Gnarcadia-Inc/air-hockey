@@ -73,6 +73,8 @@ public class GameLiftClient : MonoBehaviour
 
     private bool homeFlag;
 
+    public UserInventoryItem[] inventory;
+
     void Awake()
     {
         // Ensure the GameObject is not destroyed when loading a new scene
@@ -339,6 +341,24 @@ public class GameLiftClient : MonoBehaviour
         }
     }
 
+    public void UpdateAwayPuck(int itemId)
+    {
+        string message = $"AWAY_PUCK {UserDetails.userProfileId} {itemId}";
+        SendMessageToServer(message);
+    }
+
+    public void UpdateAwayTable(int itemId)
+    {
+        string message = $"AWAY_TABLE {UserDetails.userProfileId} {itemId}";
+        SendMessageToServer(message);
+    }
+
+    public void UpdateOpponentStopper(int itemId)
+    {
+        string message = $"OPPONENT_STOPPER {UserDetails.userProfileId} {itemId}";
+        SendMessageToServer(message);
+    }
+
     public bool GetHomeFlag()
     {
         return homeFlag;
@@ -424,6 +444,24 @@ public class GameLiftClient : MonoBehaviour
             UnityEngine.Debug.LogError(playerId + ", " + playerUsername + ", " + playerGnight + ", " + color);
 
             StartCoroutine(FindObjectOfType<APIHandler>().GetOpponentAirHockeyData(playerId, playerUsername, playerGnight, color));
+        }
+        else if (parts[0] == "AWAY_PUCK")
+        {
+            int itemId = int.Parse(parts[1]);
+
+            GameManager.Instance.SetPuckMaterial(itemId);
+        }
+        else if (parts[0] == "AWAY_TABLE")
+        {
+            int itemId = int.Parse(parts[1]);
+
+            GameManager.Instance.SetTableMaterial(itemId);
+        }
+        else if (parts[0] == "OPPONENT_STOPPER")
+        {
+            int itemId = int.Parse(parts[1]);
+
+            GameManager.Instance.OpponentStopperClicked(itemId);
         }
         else if (parts[0] == "GAME_END")
         {

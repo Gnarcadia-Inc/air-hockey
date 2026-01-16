@@ -1,7 +1,9 @@
 using UnityEngine;
+using UnityEngine.UI;
 using TMPro;
 using System;
 using System.Collections;
+using System.Collections.Generic;
 
 /// Runs after default scripts so clamping happens *after* your drag/mouse script.
 [DefaultExecutionOrder(1000)]
@@ -141,6 +143,24 @@ public class GameManager : MonoBehaviour
 
     private bool goalFlag = false;
 
+    public GameObject inventoryPanel;
+    private Dictionary<int, GameObject> itemsDict = new Dictionary<int, GameObject>();
+    public Transform stopperContent;
+    public Transform puckContent;
+    public Transform tableContent;
+
+    private Dictionary<int, GameObject> itemInstancesDict = new Dictionary<int, GameObject>();
+    private List<int> tableInstances = new List<int>();
+    private int userStopperId;
+    private int userPuckId;
+    private int userTableId;
+    public Image tableCoverImage;
+    public ScrollRect tableScrollRect;
+    private int tableIdx = 0;
+    private GameObject tablePrefab = null;
+    public GameObject puckAwayScreen;
+    public GameObject tableAwayScreen;
+
     public void OnRemotePuckState(float x, float z, float vx, float vz)
     {
         hasRemotePuck = true;
@@ -243,7 +263,44 @@ public class GameManager : MonoBehaviour
         UpdateTimerText();
 
         Debug.LogError("PASTSTARTCRO");
+
+
+        BuildDictionary();
+        InitInventory();
     }
+
+    public void BuildDictionary()
+    {
+        itemsDict = new Dictionary<int, GameObject>();
+
+        GameObject[] prefabs = Resources.LoadAll<GameObject>("ItemImagePrefabs");
+
+        foreach (var prefab in prefabs)
+        {
+            if (prefab == null) continue;
+
+            // Use prefab.name as the key, parsed to int
+            if (!int.TryParse(prefab.name, out int key))
+            {
+                Debug.LogWarning($"[ResourcePrefabDictionary] Skipping '{prefab.name}' (name is not an int).");
+                continue;
+            }
+
+            if (itemsDict.ContainsKey(key))
+            {
+                Debug.LogWarning(
+                    $"[ResourcePrefabDictionary] Duplicate key '{key}' from prefab '{prefab.name}'. " +
+                    $"Keeping existing '{itemsDict[key].name}', skipping '{prefab.name}'."
+                );
+                continue;
+            }
+
+            itemsDict.Add(key, prefab);
+        }
+
+        Debug.Log($"[ResourcePrefabDictionary] Loaded {itemsDict.Count} prefabs from Resources/{"ItemImagePrefabs"}");
+    }
+
 
     void Update()
     {
@@ -514,6 +571,9 @@ public class GameManager : MonoBehaviour
 
                 promptText.gameObject.SetActive(true);
                 promptText.text = "Puck drop in\n" + (int)(15f - elapsedTimeFloat);
+
+                //Hide Inventory
+                HideInventory();
             }
             else if (elapsedTimeFloat < 16f && elapsedTimeFloat >= 15f)
             {
@@ -583,6 +643,202 @@ public class GameManager : MonoBehaviour
             if (secTensText) secTensText.text = sTens.ToString();
             if (secOnesText) secOnesText.text = sOnes.ToString();
         }
+    }
+
+    private void InitInventory()
+    {
+        //Call in Awake()
+        //Have API calls done previously, probably load items back in menuScene
+
+        inventoryPanel.SetActive(true);
+
+        Debug.LogError("inv: " + gameLiftClient.inventory.Length.ToString());
+
+
+        itemInstancesDict = new Dictionary<int, GameObject>();
+
+        //Defaults
+        //Stopper
+        if (homeFlag)
+        {
+            puckAwayScreen.SetActive(false);
+            tableAwayScreen.SetActive(false);
+
+            //Pink Stopper = 6
+            int pinkId = 6;
+            var pinkGo = Instantiate(itemsDict[pinkId], stopperContent);
+            pinkGo.GetComponent<Button>().onClick.AddListener(() => StopperClicked(pinkId));
+            itemInstancesDict.Add(pinkId, pinkGo.transform.Find("StopperCover").gameObject);
+            userStopperId = pinkId;
+            StopperClicked(pinkId);
+        }
+        else
+        {
+            puckAwayScreen.SetActive(true);
+            tableAwayScreen.SetActive(true);
+
+            //Green Stopper = 7
+            int greenId = 7;
+            var greenGo = Instantiate(itemsDict[greenId], stopperContent);
+            greenGo.GetComponent<Button>().onClick.AddListener(() => StopperClicked(greenId));
+            itemInstancesDict.Add(greenId, greenGo.transform.Find("StopperCover").gameObject);
+            userStopperId = greenId;
+            StopperClicked(greenId);
+        }
+
+        //Neon Blue Puck
+        int blueId = 13;
+        var blueGo = Instantiate(itemsDict[blueId], puckContent);
+        blueGo.GetComponent<Button>().onClick.AddListener(() => PuckClicked(blueId));
+        itemInstancesDict.Add(blueId, blueGo.transform.Find("PuckCover").gameObject);
+        userPuckId = blueId;
+        PuckClicked(blueId);
+
+        //Arcade Table
+        int arcadeId = 18;
+        Instantiate(itemsDict[arcadeId], tableContent);
+        tableInstances.Add(arcadeId);
+        userTableId = arcadeId;
+        TableSelected(arcadeId);
+
+        //SETACTIVE true all covers before here
+        //SETACTIVE false all covers after here
+        //SET userStopperId and userPuckId here to start
+        //DO button functions
+
+        foreach (var item in gameLiftClient.inventory)
+        {
+            int itemId = item.itemId;
+            var itemPrefab = itemsDict[item.itemId];
+            var go = itemPrefab;
+            switch (item.itemType)
+            {
+                case "Stopper":
+                    go = Instantiate(itemPrefab, stopperContent);
+                    go.GetComponent<Button>().onClick.AddListener(() => StopperClicked(itemId));
+                    var stopperGo = go.transform.Find("StopperCover").gameObject;
+                    itemInstancesDict.Add(itemId, stopperGo);
+                    stopperGo.SetActive(false);
+                    break;
+                case "Puck":
+                    go = Instantiate(itemPrefab, puckContent);
+                    go.GetComponent<Button>().onClick.AddListener(() => PuckClicked(itemId));
+                    var puckGo = go.transform.Find("PuckCover").gameObject;
+                    itemInstancesDict.Add(itemId, puckGo);
+                    puckGo.SetActive(false);
+                    break;
+                case "Table":
+                    Instantiate(itemPrefab, tableContent);
+                    tableInstances.Add(itemId);
+                    break;
+            }
+        }
+    }
+
+    private void StopperClicked(int itemId)
+    {
+        Debug.LogError("SIUPP");
+
+        itemInstancesDict[userStopperId].SetActive(false);
+
+        userStopperId = itemId;
+
+        itemInstancesDict[itemId].SetActive(true);
+
+        foreach (Transform child in stopper.transform)
+        {
+            child.gameObject.GetComponent<MeshRenderer>().material = Resources.Load<Material>("ItemMaterials/" + itemId.ToString());
+        }
+
+        gameLiftClient.UpdateOpponentStopper(itemId);
+    }
+
+    public void OpponentStopperClicked(int itemId)
+    {
+        foreach (Transform child in opponentStopper.transform)
+        {
+            child.gameObject.GetComponent<MeshRenderer>().material = Resources.Load<Material>("ItemMaterials/" + itemId.ToString());
+        }
+    }
+
+    private void PuckClicked(int itemId)
+    {
+        itemInstancesDict[userPuckId].SetActive(false);
+
+        userPuckId = itemId;
+
+        itemInstancesDict[itemId].SetActive(true);
+
+        SetPuckMaterial(itemId);
+
+        if (homeFlag)
+        {
+            gameLiftClient.UpdateAwayPuck(itemId);
+        }
+    }
+
+    public void SetPuckMaterial(int itemId)
+    {
+        puck.GetComponent<MeshRenderer>().material = Resources.Load<Material>("ItemMaterials/" + itemId.ToString());
+    }
+
+    private void TableSelected(int itemId)
+    {
+        userTableId = itemId;
+
+        tableCoverImage.sprite = Resources.Load<Sprite>("TableSprites/" + itemId.ToString());
+
+        SetTableMaterial(itemId);
+
+        if (homeFlag)
+        {
+            gameLiftClient.UpdateAwayTable(itemId);
+        }
+    }
+
+    public void SetTableMaterial(int itemId)
+    {
+        if (tablePrefab != null)
+        {
+            Destroy(tablePrefab);
+        }
+        tablePrefab = Instantiate(Resources.Load<GameObject>("ItemPrefabs/" + itemId.ToString()), table);
+    }
+
+    public void LeftTableButton()
+    {
+        tableIdx--;
+
+        if (tableIdx == -1f)
+        {
+            tableIdx = tableContent.childCount - 1;
+        }
+
+        Canvas.ForceUpdateCanvases();
+        tableScrollRect.horizontalNormalizedPosition = (float)tableIdx * ((tableContent.gameObject.GetComponent<RectTransform>().sizeDelta.x / (float)tableContent.childCount) / tableContent.gameObject.GetComponent<RectTransform>().sizeDelta.x);
+
+        TableSelected(tableInstances[tableIdx]);
+    }
+
+    public void RightTableButton()
+    {
+        tableIdx++;
+
+        if (tableIdx == tableContent.childCount)
+        {
+            tableIdx = 0;
+        }
+
+        Canvas.ForceUpdateCanvases();
+        tableScrollRect.horizontalNormalizedPosition = (float)tableIdx * ((tableContent.gameObject.GetComponent<RectTransform>().sizeDelta.x / (float)tableContent.childCount) / tableContent.gameObject.GetComponent<RectTransform>().sizeDelta.x);
+
+        TableSelected(tableInstances[tableIdx]);
+    }
+
+    private void HideInventory()
+    {
+        //Call at Hide Inventory
+        inventoryPanel.SetActive(false);
     }
 
 

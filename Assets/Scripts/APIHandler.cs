@@ -100,6 +100,8 @@ public class APIHandler : MonoBehaviour
         AirHockeyDetails.recentNetEarningsEma = user.recentNetEarningsEma;
 
         FindObjectOfType<MenuManager>().InitUserDetails();
+
+        StartCoroutine(GetUserInventory());
     }
 
     public IEnumerator GetOpponentAirHockeyData(int opponentProfileId, string opponentUsername, int opponentGnight, string color)
@@ -135,6 +137,30 @@ public class APIHandler : MonoBehaviour
     public void ResetSessionID()
     {
         sessionId = -1;
+    }
+
+    public IEnumerator GetUserInventory()
+    {
+        string url = $"{baseUrl}/store/game/user-inventory?userProfileId={UserDetails.userProfileId}&gameId=7";
+
+        UnityWebRequest request = UnityWebRequest.Get(url);
+
+        yield return request.SendWebRequest();
+
+        long httpCode = request.responseCode;
+        string body = request.downloadHandler != null ? request.downloadHandler.text : null;
+
+        // Success path
+        if (request.result == UnityWebRequest.Result.Success && httpCode >= 200 && httpCode < 300)
+        {
+            Debug.LogError("BROEKBOY");
+
+            var inventory = JsonArrayHelper.FromJsonArray<UserInventoryResponse>(body);
+
+            FindObjectOfType<GameLiftClient>().inventory = inventory.items;
+
+            yield break;
+        }
     }
 
     public IEnumerator StartGameSession(int userId, float wagerAmount)
@@ -335,6 +361,16 @@ public class APIHandler : MonoBehaviour
         Debug.LogError($"Start session failed. HTTP {httpCode}. Body: {body}");
     }
 
+    public static class JsonArrayHelper
+    {
+        // Wraps: [ {..}, {..} ]  ->  { "items": [ {..}, {..} ] }
+        public static T FromJsonArray<T>(string jsonArray, string arrayFieldName = "items")
+        {
+            string wrapped = "{ \"" + arrayFieldName + "\":" + jsonArray + "}";
+            return JsonUtility.FromJson<T>(wrapped);
+        }
+    }
+
 }
 
 public class UserJSONDetails
@@ -389,6 +425,38 @@ public class SessionStartRequest
     public float sessionLimit;
     public float roundAmount;
     public bool reservedFundsLostOnSessionEnd;
+}
+
+[System.Serializable]
+public class UserInventoryRequest
+{
+    public int userprofileId;
+    public int gameId;
+}
+
+[Serializable]
+public class UserInventoryItem
+{
+    public int itemId;
+    public string code;
+    public int type;
+    public string itemType;
+    public string name;
+    public string description;
+    public int gameId;
+    public string gameTitle;
+    public bool isConsumable;
+    public int quantity;
+    public int consumedQuantity;
+    public int remainingQuantity;
+    public string imageUrl;
+    public string metadataJson;
+}
+
+[Serializable]
+public class UserInventoryResponse
+{
+    public UserInventoryItem[] items;
 }
 
 [System.Serializable]
